@@ -214,12 +214,14 @@ function parseDouyinShare(text, page = {}) {
   const url = extractDouyinUrl(rawText);
   if (!url) return null;
   const beforeUrl = rawText.slice(0, rawText.indexOf(url));
-  const title = extractDouyinTitle(beforeUrl);
-  const tags = extractDouyinTags(rawText);
+  const shareContent = extractDouyinShareContent(beforeUrl);
+  const title = extractDouyinTitle(shareContent);
+  const tags = extractDouyinTags(shareContent);
   return {
     source: "douyin",
     url,
     rawText,
+    shareContent,
     title: title || page.title || "抖音视频",
     tags,
     pageTitle: page.title || "",
@@ -244,13 +246,15 @@ function cleanDouyinShareText(text, url = "") {
     .trim();
 }
 
-function extractDouyinTitle(text) {
+function extractDouyinShareContent(text) {
   const source = String(text || "");
   const firstChinese = source.search(/[\u4e00-\u9fff]/u);
-  if (firstChinese < 0) return source.trim();
-  const fromTitle = source.slice(firstChinese);
-  const end = fromTitle.search(/\s+#|https?:\/\//u);
-  const title = (end >= 0 ? fromTitle.slice(0, end) : fromTitle).replace(/\s+/g, " ").trim();
+  return (firstChinese >= 0 ? source.slice(firstChinese) : source).replace(/\s+/g, " ").trim();
+}
+
+function extractDouyinTitle(text) {
+  const content = extractDouyinShareContent(text);
+  const title = content.split(/\s+#/u)[0].replace(/\s+/g, " ").trim();
   return title.replace(/[，。；、,.!?！?]+$/g, "");
 }
 
@@ -374,7 +378,7 @@ async function handleNoteInput() {
     await chrome.storage.local.set({ [STORAGE_KEYS.pendingShare]: share });
     state.page = pageFromDouyinShare(state.page || {}, share);
     $("tagsInput").value = mergeTagText($("tagsInput").value, share.tags || []);
-    $("noteInput").value = extractUserNoteAfterDouyinShare(originalNote, share.url);
+    $("noteInput").value = share.shareContent || extractUserNoteAfterDouyinShare(originalNote, share.url);
     renderCurrentPage();
     setStatus("已从备注识别抖音链接。", "success");
   }

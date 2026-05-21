@@ -33,11 +33,13 @@ function parseDouyinShare(text, context = {}) {
   if (!url) return null;
 
   const beforeUrl = rawText.slice(0, rawText.indexOf(url));
-  const cleanedText = extractDouyinTitle(beforeUrl);
+  const shareContent = extractDouyinShareContent(beforeUrl);
+  const cleanedText = extractDouyinTitle(shareContent);
   return {
     source: "douyin",
     url,
     rawText,
+    shareContent,
     title: cleanedText && !isNoisyDouyinShareText(cleanedText) ? cleanedText : context.title || document.title || "抖音视频",
     pageTitle: context.title || document.title || "",
     pageUrl: context.href || location.href,
@@ -61,13 +63,15 @@ function cleanDouyinShareText(text, url = "") {
     .trim();
 }
 
-function extractDouyinTitle(text) {
+function extractDouyinShareContent(text) {
   const source = String(text || "");
   const firstChinese = source.search(/[\u4e00-\u9fff]/u);
-  if (firstChinese < 0) return source.trim();
-  const fromTitle = source.slice(firstChinese);
-  const end = fromTitle.search(/\s+#|https?:\/\//u);
-  const title = (end >= 0 ? fromTitle.slice(0, end) : fromTitle).replace(/\s+/g, " ").trim();
+  return (firstChinese >= 0 ? source.slice(firstChinese) : source).replace(/\s+/g, " ").trim();
+}
+
+function extractDouyinTitle(text) {
+  const content = extractDouyinShareContent(text);
+  const title = content.split(/\s+#/u)[0].replace(/\s+/g, " ").trim();
   return title.replace(/[，。；、,.!?！?]+$/g, "");
 }
 
