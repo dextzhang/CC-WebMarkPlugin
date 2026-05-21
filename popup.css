@@ -464,7 +464,8 @@ button:disabled {
   font-weight: 620;
 }
 
-.settings-overlay {
+.settings-overlay,
+.manager-overlay {
   position: fixed;
   inset: 0;
   display: flex;
@@ -474,11 +475,13 @@ button:disabled {
   background: rgba(31, 35, 40, 0.14);
 }
 
-.settings-overlay[hidden] {
+.settings-overlay[hidden],
+.manager-overlay[hidden] {
   display: none;
 }
 
-.settings-panel {
+.settings-panel,
+.manager-panel {
   display: flex;
   flex-direction: column;
   gap: 11px;
@@ -490,6 +493,44 @@ button:disabled {
   box-shadow: var(--shadow);
   scrollbar-width: thin;
   scrollbar-color: #cfd6dc transparent;
+}
+
+.manager-panel {
+  max-height: 94vh;
+}
+
+.manager-tools {
+  display: grid;
+  grid-template-columns: 1fr 124px;
+  gap: 9px;
+}
+
+.manager-tools select {
+  width: 100%;
+  border: 1px solid #eef0f2;
+  border-radius: 11px;
+  outline: none;
+  background: #fff;
+  color: var(--ink);
+  padding: 0 9px;
+}
+
+.manager-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-height: 240px;
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cfd6dc transparent;
+}
+
+.manager-list .bookmark-item {
+  background: #fff;
+}
+
+.danger-button {
+  color: #8a6565;
 }
 
 .switch {

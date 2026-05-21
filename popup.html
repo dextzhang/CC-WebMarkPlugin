@@ -63,7 +63,7 @@
           <span aria-hidden="true">⚙</span>
           <span>设置</span>
         </button>
-        <span class="version">v0.1.4</span>
+        <span class="version">v0.2.0</span>
         <button class="footer-button" id="manageBookmarks" aria-label="管理收藏">
           <span>管理收藏</span>
           <span aria-hidden="true">⌄</span>
@@ -114,6 +114,24 @@
           <button class="secondary-button" id="pushGithub">上传</button>
         </div>
         <p class="sync-status" id="syncStatus">未配置同步。</p>
+      </section>
+    </div>
+
+    <div class="manager-overlay" id="managerOverlay" hidden>
+      <section class="manager-panel" role="dialog" aria-modal="true" aria-labelledby="managerTitle">
+        <div class="settings-head">
+          <h2 id="managerTitle">管理收藏</h2>
+          <button class="icon-button subtle" id="closeManager" title="关闭管理收藏" aria-label="关闭管理收藏">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+        <div class="manager-tools">
+          <input id="managerSearch" type="search" placeholder="搜索标题、备注、标签、域名">
+          <select id="managerTagFilter" aria-label="按标签筛选">
+            <option value="">全部标签</option>
+          </select>
+        </div>
+        <div class="manager-list" id="managerList"></div>
       </section>
     </div>
 

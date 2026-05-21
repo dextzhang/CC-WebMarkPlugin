@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "CC Mark",
   "description": "Personal webpage bookmark notes with local storage and GitHub sync.",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "action": {
     "default_title": "CC Mark",
     "default_popup": "popup.html",

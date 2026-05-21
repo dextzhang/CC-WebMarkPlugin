@@ -39,15 +39,21 @@ function bindEvents() {
   $("saveConfig").addEventListener("click", saveGithubConfig);
   $("pullGithub").addEventListener("click", pullFromGithub);
   $("openGithub").addEventListener("click", openGithubRepo);
-  $("manageBookmarks").addEventListener("click", () => setStatus("管理收藏页会在后续版本加入。", ""));
+  $("manageBookmarks").addEventListener("click", openManager);
   $("pushGithub").addEventListener("click", pushToGithub);
   $("exportMarkdown").addEventListener("click", () => copyText(renderMarkdown(state.bookmarks)));
   $("openSettings").addEventListener("click", openSettings);
   $("closeSettings").addEventListener("click", closeSettings);
+  $("closeManager").addEventListener("click", closeManager);
+  $("managerSearch").addEventListener("input", renderManager);
+  $("managerTagFilter").addEventListener("change", renderManager);
   $("noteInput").addEventListener("input", queueDraftSave);
   $("tagsInput").addEventListener("input", queueDraftSave);
   $("settingsOverlay").addEventListener("click", (event) => {
     if (event.target === $("settingsOverlay")) closeSettings();
+  });
+  $("managerOverlay").addEventListener("click", (event) => {
+    if (event.target === $("managerOverlay")) closeManager();
   });
 }
 
@@ -223,6 +229,7 @@ async function addBookmark() {
   $("noteInput").value = "";
   $("tagsInput").value = "";
   renderRecent();
+  renderManager();
   setStatus("已保存到本机。", "success");
 
   if (state.github.autoSync && hasGithubConfig()) {
@@ -307,6 +314,7 @@ async function pullFromGithub() {
     const merged = mergeById([...remote, ...state.bookmarks]);
     await saveBookmarks(merged);
     renderRecent();
+    renderManager();
     setStatus(`拉取完成，本机共有 ${state.bookmarks.length} 条收藏。`, "success");
   });
 }
@@ -321,6 +329,7 @@ async function pushToGithub() {
     await uploadGithubFile(state.github.mdPath, renderMarkdown(sorted), "Update bookmark markdown");
     await saveBookmarks(sorted);
     renderRecent();
+    renderManager();
     setStatus(`上传成功，共 ${sorted.length} 条收藏。`, "success");
   });
 }
@@ -434,6 +443,7 @@ function renderAll() {
   renderCurrentPage();
   renderConfig();
   renderRecent();
+  renderManager();
   renderBusy();
 }
 
@@ -466,84 +476,155 @@ function renderRecent() {
   }
 
   for (const bookmark of recent) {
-    const item = document.createElement("article");
-    item.className = "bookmark-item";
-    if (state.editingBookmarkId === bookmark.id) {
-      item.classList.add("is-editing");
-    }
-
-    const top = document.createElement("p");
-    top.className = "bookmark-top";
-    top.textContent = renderBookmarkTitleLine(bookmark);
-
-    const editToggle = document.createElement("button");
-    editToggle.className = "text-button bookmark-edit-toggle";
-    editToggle.textContent = state.editingBookmarkId === bookmark.id ? "保存" : "编辑";
-
-    const edit = document.createElement("div");
-    edit.className = "bookmark-edit";
-
-    const titleInput = document.createElement("input");
-    titleInput.className = "bookmark-edit-input";
-    titleInput.type = "text";
-    titleInput.value = bookmark.title || "";
-    titleInput.placeholder = "修改标题";
-
-    const tagsInput = document.createElement("input");
-    tagsInput.className = "bookmark-edit-input";
-    tagsInput.type = "text";
-    tagsInput.value = bookmark.tags?.join(", ") || "";
-    tagsInput.placeholder = "修改标签";
-
-    const noteInput = document.createElement("textarea");
-    noteInput.className = "bookmark-edit-textarea";
-    noteInput.value = bookmark.note || "";
-    noteInput.placeholder = "修改备注";
-
-    editToggle.addEventListener("click", () => {
-      if (state.editingBookmarkId === bookmark.id) {
-        updateBookmark(bookmark.id, {
-          title: titleInput.value,
-          tags: tagsInput.value,
-          note: noteInput.value
-        });
-      } else {
-        state.editingBookmarkId = bookmark.id;
-        renderRecent();
-      }
-    });
-
-    edit.append(titleInput, tagsInput, noteInput);
-
-    const tags = document.createElement("p");
-    tags.className = "bookmark-tags";
-    tags.textContent = bookmark.tags?.length ? bookmark.tags.map((tag) => `#${tag}`).join(" ") : "#未标记";
-
-    const note = document.createElement("p");
-    note.className = "bookmark-note";
-    note.textContent = bookmark.note || "无备注";
-
-    const date = document.createElement("p");
-    date.className = "bookmark-date";
-    date.textContent = formatDate(bookmark.createdAt);
-
-    const actions = document.createElement("div");
-    actions.className = "bookmark-actions";
-
-    const openButton = document.createElement("button");
-    openButton.className = "text-button";
-    openButton.textContent = "打开";
-    openButton.addEventListener("click", () => chrome.tabs.create({ url: bookmark.cleanUrl || bookmark.url }));
-
-    const copyButton = document.createElement("button");
-    copyButton.className = "text-button";
-    copyButton.textContent = "复制";
-    copyButton.addEventListener("click", () => copyText(renderCompactBookmark(bookmark)));
-
-    actions.append(openButton, copyButton);
-    item.append(top, editToggle, edit, tags, note, date, actions);
-    list.append(item);
+    list.append(createBookmarkItem(bookmark, { allowDelete: false }));
   }
+}
+
+function renderManager() {
+  const list = $("managerList");
+  if (!list) return;
+  renderTagFilter();
+  list.innerHTML = "";
+  const bookmarks = filteredBookmarks();
+
+  if (!bookmarks.length) {
+    const empty = document.createElement("p");
+    empty.className = "empty";
+    empty.textContent = "没有匹配的收藏。";
+    list.append(empty);
+    return;
+  }
+
+  for (const bookmark of bookmarks) {
+    list.append(createBookmarkItem(bookmark, { allowDelete: true }));
+  }
+}
+
+function renderTagFilter() {
+  const select = $("managerTagFilter");
+  const current = select.value;
+  const tags = [...new Set(state.bookmarks.flatMap((bookmark) => bookmark.tags || []))].sort((a, b) => a.localeCompare(b));
+  select.innerHTML = "";
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = "全部标签";
+  select.append(all);
+  for (const tag of tags) {
+    const option = document.createElement("option");
+    option.value = tag;
+    option.textContent = `#${tag}`;
+    select.append(option);
+  }
+  select.value = tags.includes(current) ? current : "";
+}
+
+function filteredBookmarks() {
+  const keyword = $("managerSearch").value.trim().toLowerCase();
+  const tag = $("managerTagFilter").value;
+  return state.bookmarks.filter((bookmark) => {
+    const matchesTag = !tag || bookmark.tags?.includes(tag);
+    const haystack = [
+      bookmark.title,
+      bookmark.note,
+      bookmark.cleanUrl,
+      bookmark.url,
+      bookmark.hostname,
+      ...(bookmark.tags || [])
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return matchesTag && (!keyword || haystack.includes(keyword));
+  });
+}
+
+function createBookmarkItem(bookmark, options = {}) {
+  const item = document.createElement("article");
+  item.className = "bookmark-item";
+  if (state.editingBookmarkId === bookmark.id) {
+    item.classList.add("is-editing");
+  }
+
+  const top = document.createElement("p");
+  top.className = "bookmark-top";
+  top.textContent = renderBookmarkTitleLine(bookmark);
+
+  const editToggle = document.createElement("button");
+  editToggle.className = "text-button bookmark-edit-toggle";
+  editToggle.textContent = state.editingBookmarkId === bookmark.id ? "保存" : "编辑";
+
+  const edit = document.createElement("div");
+  edit.className = "bookmark-edit";
+
+  const titleInput = document.createElement("input");
+  titleInput.className = "bookmark-edit-input";
+  titleInput.type = "text";
+  titleInput.value = bookmark.title || "";
+  titleInput.placeholder = "修改标题";
+
+  const tagsInput = document.createElement("input");
+  tagsInput.className = "bookmark-edit-input";
+  tagsInput.type = "text";
+  tagsInput.value = bookmark.tags?.join(", ") || "";
+  tagsInput.placeholder = "修改标签";
+
+  const noteInput = document.createElement("textarea");
+  noteInput.className = "bookmark-edit-textarea";
+  noteInput.value = bookmark.note || "";
+  noteInput.placeholder = "修改备注";
+
+  editToggle.addEventListener("click", () => {
+    if (state.editingBookmarkId === bookmark.id) {
+      updateBookmark(bookmark.id, {
+        title: titleInput.value,
+        tags: tagsInput.value,
+        note: noteInput.value
+      });
+    } else {
+      state.editingBookmarkId = bookmark.id;
+      renderRecent();
+      renderManager();
+    }
+  });
+
+  edit.append(titleInput, tagsInput, noteInput);
+
+  const tags = document.createElement("p");
+  tags.className = "bookmark-tags";
+  tags.textContent = bookmark.tags?.length ? bookmark.tags.map((tag) => `#${tag}`).join(" ") : "#未标记";
+
+  const note = document.createElement("p");
+  note.className = "bookmark-note";
+  note.textContent = bookmark.note || "无备注";
+
+  const date = document.createElement("p");
+  date.className = "bookmark-date";
+  date.textContent = formatDate(bookmark.createdAt);
+
+  const actions = document.createElement("div");
+  actions.className = "bookmark-actions";
+
+  const openButton = document.createElement("button");
+  openButton.className = "text-button";
+  openButton.textContent = "打开";
+  openButton.addEventListener("click", () => chrome.tabs.create({ url: bookmark.cleanUrl || bookmark.url }));
+
+  const copyButton = document.createElement("button");
+  copyButton.className = "text-button";
+  copyButton.textContent = "复制";
+  copyButton.addEventListener("click", () => copyText(renderCompactBookmark(bookmark)));
+
+  actions.append(openButton, copyButton);
+  if (options.allowDelete) {
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "text-button danger-button";
+    deleteButton.textContent = "删除";
+    deleteButton.addEventListener("click", () => deleteBookmark(bookmark.id));
+    actions.append(deleteButton);
+  }
+
+  item.append(top, editToggle, edit, tags, note, date, actions);
+  return item;
 }
 
 async function updateBookmark(id, values) {
@@ -574,7 +655,25 @@ async function updateBookmark(id, values) {
   state.editingBookmarkId = null;
   await saveBookmarks(updated);
   renderRecent();
+  renderManager();
   setStatus("收藏已更新。", "success");
+
+  if (hasGithubConfig()) {
+    await pushToGithub();
+  }
+}
+
+async function deleteBookmark(id) {
+  const bookmark = state.bookmarks.find((item) => item.id === id);
+  if (!bookmark) return;
+  const confirmed = window.confirm(`删除这条收藏？\n\n${bookmark.title || bookmark.cleanUrl || bookmark.url}`);
+  if (!confirmed) return;
+
+  state.editingBookmarkId = null;
+  await saveBookmarks(state.bookmarks.filter((item) => item.id !== id));
+  renderRecent();
+  renderManager();
+  setStatus("收藏已删除。", "success");
 
   if (hasGithubConfig()) {
     await pushToGithub();
@@ -627,6 +726,18 @@ function openSettings() {
 
 function closeSettings() {
   $("settingsOverlay").hidden = true;
+}
+
+function openManager() {
+  $("managerOverlay").hidden = false;
+  renderManager();
+  $("managerSearch").focus();
+}
+
+function closeManager() {
+  $("managerOverlay").hidden = true;
+  state.editingBookmarkId = null;
+  renderRecent();
 }
 
 function openGithubRepo() {
