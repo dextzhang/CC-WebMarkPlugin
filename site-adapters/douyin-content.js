@@ -62,12 +62,13 @@ function cleanDouyinShareText(text, url = "") {
 }
 
 function extractDouyinTitle(text) {
-  const beforeTags = String(text || "").split("#")[0] || "";
-  const afterDate = beforeTags.replace(/^[\s\S]*?\b\d{1,2}\/\d{1,2}\s+/u, "");
-  const withoutNoise = (afterDate === beforeTags ? beforeTags.replace(/^[^\u4e00-\u9fff\d]+/u, "") : afterDate)
-    .replace(/\s+/g, " ")
-    .trim();
-  return withoutNoise.replace(/[，。；、,.!?！?]+$/g, "");
+  const source = String(text || "");
+  const firstChinese = source.search(/[\u4e00-\u9fff]/u);
+  if (firstChinese < 0) return source.trim();
+  const fromTitle = source.slice(firstChinese);
+  const end = fromTitle.search(/\s+#|https?:\/\//u);
+  const title = (end >= 0 ? fromTitle.slice(0, end) : fromTitle).replace(/\s+/g, " ").trim();
+  return title.replace(/[，。；、,.!?！?]+$/g, "");
 }
 
 function isNoisyDouyinShareText(text) {

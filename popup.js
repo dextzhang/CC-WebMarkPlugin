@@ -245,12 +245,13 @@ function cleanDouyinShareText(text, url = "") {
 }
 
 function extractDouyinTitle(text) {
-  const beforeTags = String(text || "").split("#")[0] || "";
-  const afterDate = beforeTags.replace(/^[\s\S]*?\b\d{1,2}\/\d{1,2}\s+/u, "");
-  const withoutNoise = (afterDate === beforeTags ? beforeTags.replace(/^[^\u4e00-\u9fff\d]+/u, "") : afterDate)
-    .replace(/\s+/g, " ")
-    .trim();
-  return withoutNoise.replace(/[，。；、,.!?！?]+$/g, "");
+  const source = String(text || "");
+  const firstChinese = source.search(/[\u4e00-\u9fff]/u);
+  if (firstChinese < 0) return source.trim();
+  const fromTitle = source.slice(firstChinese);
+  const end = fromTitle.search(/\s+#|https?:\/\//u);
+  const title = (end >= 0 ? fromTitle.slice(0, end) : fromTitle).replace(/\s+/g, " ").trim();
+  return title.replace(/[，。；、,.!?！?]+$/g, "");
 }
 
 function extractDouyinTags(text) {
@@ -366,17 +367,27 @@ function parseTags(value) {
 }
 
 async function handleNoteInput() {
-  const share = parseDouyinShare($("noteInput").value, state.page || {});
+  const originalNote = $("noteInput").value;
+  const share = parseDouyinShare(originalNote, state.page || {});
   if (share) {
     state.pendingShare = share;
     await chrome.storage.local.set({ [STORAGE_KEYS.pendingShare]: share });
     state.page = pageFromDouyinShare(state.page || {}, share);
     $("tagsInput").value = mergeTagText($("tagsInput").value, share.tags || []);
-    $("noteInput").value = "";
+    $("noteInput").value = extractUserNoteAfterDouyinShare(originalNote, share.url);
     renderCurrentPage();
     setStatus("已从备注识别抖音链接。", "success");
   }
   queueDraftSave();
+}
+
+function extractUserNoteAfterDouyinShare(text, url) {
+  const value = String(text || "");
+  const marker = /复制(?:此)?链接[，,]?\s*打开(?:Dou音|抖音|Douyin).*?(?:视频|观看)[！!。.]?/i;
+  const afterMarker = value.split(marker)[1]?.trim();
+  if (afterMarker) return afterMarker;
+  const afterUrl = value.slice(value.indexOf(url) + url.length).replace(marker, "").trim();
+  return afterUrl && !isNoisyDouyinShareText(afterUrl) ? afterUrl : "";
 }
 
 function mergeTagText(current, tags) {
