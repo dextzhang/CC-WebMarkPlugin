@@ -499,6 +499,21 @@ button:disabled {
   font-weight: 640;
 }
 
+.settings-github-button {
+  min-height: 34px;
+  margin-left: auto;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  color: #64717b;
+  background: #fff;
+  font-weight: 650;
+}
+
+.settings-github-button:hover {
+  background: #f7f9fa;
+}
+
 .switch input {
   width: 42px;
   height: 23px;

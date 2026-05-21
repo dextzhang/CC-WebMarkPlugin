@@ -39,6 +39,7 @@ function bindEvents() {
   $("saveConfig").addEventListener("click", saveGithubConfig);
   $("pullGithub").addEventListener("click", pullFromGithub);
   $("openGithub").addEventListener("click", openGithubRepo);
+  $("manageBookmarks").addEventListener("click", () => setStatus("管理收藏页会在后续版本加入。", ""));
   $("pushGithub").addEventListener("click", pushToGithub);
   $("exportMarkdown").addEventListener("click", () => copyText(renderMarkdown(state.bookmarks)));
   $("openSettings").addEventListener("click", openSettings);
