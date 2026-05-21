@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "CC Mark",
+  "description": "Personal webpage bookmark notes with local storage and GitHub sync.",
+  "version": "0.1.4",
+  "action": {
+    "default_title": "CC Mark",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://api.github.com/*"
+  ]
+}

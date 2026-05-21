@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CC Mark</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <img src="icons/icon-32.png" alt="" class="brand-icon">
+          <div>
+            <p class="eyebrow">CC Mark</p>
+            <h1>网页标记收藏</h1>
+          </div>
+        </div>
+        <button class="icon-button" id="refreshPage" title="重新读取当前网页" aria-label="重新读取当前网页">
+          <span aria-hidden="true">↻</span>
+        </button>
+      </header>
+
+      <section class="soft-card current-page" aria-labelledby="currentPageTitle">
+        <div class="section-head">
+          <h2 id="currentPageTitle">当前网页</h2>
+          <button class="text-button" id="copyCleanUrl">复制 URL</button>
+        </div>
+        <p class="page-title" id="pageTitle">读取中...</p>
+        <p class="page-meta" id="pageAuthor"></p>
+        <p class="clean-url" id="cleanUrl"></p>
+      </section>
+
+      <section class="soft-card" aria-labelledby="addBookmarkTitle">
+        <div class="section-head">
+          <h2 id="addBookmarkTitle">添加收藏</h2>
+          <div class="add-status">
+            <span class="inline-sync-status" id="syncInlineStatus">待命</span>
+            <span class="status-pill" id="syncMode">本地优先</span>
+          </div>
+        </div>
+        <label class="field">
+          <span>备注</span>
+          <textarea id="noteInput" rows="4" placeholder="写下这条网页值得保存的原因"></textarea>
+        </label>
+        <label class="field">
+          <span>标签</span>
+          <input id="tagsInput" type="text" placeholder="AI, 教程, 稍后阅读">
+        </label>
+        <button class="primary-button" id="addBookmark">添加收藏</button>
+      </section>
+
+      <section class="recent-panel" aria-labelledby="recentTitle">
+        <div class="section-head recent-head">
+          <h2 id="recentTitle">最近收藏</h2>
+          <button class="text-button" id="exportMarkdown">复制 MD</button>
+        </div>
+        <div class="recent-list" id="recentList"></div>
+      </section>
+
+      <footer class="footerbar">
+        <button class="footer-button" id="openSettings" aria-label="打开设置">
+          <span aria-hidden="true">⚙</span>
+          <span>设置</span>
+        </button>
+        <span class="version">v0.1.4</span>
+        <button class="footer-button" id="openGithub" aria-label="打开 GitHub 仓库">
+          <span>GitHub</span>
+          <span aria-hidden="true">↗</span>
+        </button>
+      </footer>
+    </main>
+
+    <div class="settings-overlay" id="settingsOverlay" hidden>
+      <section class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="githubTitle">
+        <div class="settings-head">
+          <h2 id="githubTitle">同步设置</h2>
+          <button class="icon-button subtle" id="closeSettings" title="关闭设置" aria-label="关闭设置">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+        <label class="switch">
+          <span>收藏后自动上传</span>
+          <input id="autoSync" type="checkbox">
+        </label>
+        <div class="grid">
+          <label class="field">
+            <span>仓库</span>
+            <input id="repoInput" type="text" placeholder="owner/repo">
+          </label>
+          <label class="field">
+            <span>分支</span>
+            <input id="branchInput" type="text" placeholder="main">
+          </label>
+        </div>
+        <label class="field">
+          <span>Token</span>
+          <input id="tokenInput" type="password" placeholder="只保存在本地浏览器">
+        </label>
+        <div class="grid">
+          <label class="field">
+            <span>JSON 路径</span>
+            <input id="jsonPathInput" type="text" placeholder="bookmarks.json">
+          </label>
+          <label class="field">
+            <span>MD 路径</span>
+            <input id="mdPathInput" type="text" placeholder="bookmarks.md">
+          </label>
+        </div>
+        <div class="button-row">
+          <button class="secondary-button" id="saveConfig">保存</button>
+          <button class="secondary-button" id="pullGithub">拉取</button>
+          <button class="secondary-button" id="pushGithub">上传</button>
+        </div>
+        <p class="sync-status" id="syncStatus">未配置同步。</p>
+      </section>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
