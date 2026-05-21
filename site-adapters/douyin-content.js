@@ -32,7 +32,7 @@ function parseDouyinShare(text, context = {}) {
   const url = extractDouyinUrl(rawText);
   if (!url) return null;
 
-  const cleanedText = cleanDouyinShareText(rawText, url);
+  const cleanedText = extractDouyinTitle(rawText, url);
   return {
     source: "douyin",
     url,
@@ -58,6 +58,13 @@ function cleanDouyinShareText(text, url) {
     .replace(/https?:\/\/\S+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function extractDouyinTitle(text, url) {
+  const cleaned = cleanDouyinShareText(text, url).replace(/\s*#.*$/u, "").trim();
+  const chineseTitle = cleaned.match(/[\u4e00-\u9fff][^#]{3,}/u)?.[0]?.trim();
+  if (chineseTitle) return chineseTitle.replace(/[，。；、,.!?！?]+$/g, "");
+  return cleaned;
 }
 
 function isNoisyDouyinShareText(text) {

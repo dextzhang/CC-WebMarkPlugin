@@ -207,7 +207,7 @@ function parseDouyinShare(text, page = {}) {
   const rawText = String(text || "").trim();
   const url = extractDouyinUrl(rawText);
   if (!url) return null;
-  const title = cleanDouyinShareText(rawText, url);
+  const title = extractDouyinTitle(rawText, url);
   return {
     source: "douyin",
     url,
@@ -233,6 +233,13 @@ function cleanDouyinShareText(text, url) {
     .replace(/https?:\/\/\S+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function extractDouyinTitle(text, url) {
+  const cleaned = cleanDouyinShareText(text, url).replace(/\s*#.*$/u, "").trim();
+  const chineseTitle = cleaned.match(/[\u4e00-\u9fff][^#]{3,}/u)?.[0]?.trim();
+  if (chineseTitle) return chineseTitle.replace(/[，。；、,.!?！?]+$/g, "");
+  return cleaned;
 }
 
 function preferredDouyinTitle(share, page = {}) {
@@ -343,12 +350,13 @@ function parseTags(value) {
 
 async function handleNoteInput() {
   const share = parseDouyinShare($("noteInput").value, state.page || {});
-  if (share && state.page?.hostname?.includes("douyin.com")) {
+  if (share) {
     state.pendingShare = share;
     await chrome.storage.local.set({ [STORAGE_KEYS.pendingShare]: share });
-    state.page = pageFromDouyinShare(state.page, share);
+    state.page = pageFromDouyinShare(state.page || {}, share);
     const cleanedNote = cleanDouyinShareText($("noteInput").value, share.url);
-    $("noteInput").value = cleanedNote && !isNoisyDouyinShareText(cleanedNote) ? cleanedNote : "";
+    const title = extractDouyinTitle($("noteInput").value, share.url);
+    $("noteInput").value = cleanedNote && !isNoisyDouyinShareText(cleanedNote) && cleanedNote !== title ? cleanedNote : "";
     renderCurrentPage();
     setStatus("已从备注识别抖音链接。", "success");
   }
