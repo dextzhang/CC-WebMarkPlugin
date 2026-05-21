@@ -134,6 +134,12 @@ function collectPageInfo() {
       author;
   }
 
+  if (hostname.includes("douyin.com")) {
+    const bodyText = document.body?.innerText || "";
+    const douyinAuthor = bodyText.match(/@([^\s@#：:，,。；;|｜]{2,30})/)?.[1] || "";
+    author = douyinAuthor || author;
+  }
+
   return {
     title: metas(["og:title", "twitter:title"]) || document.title || "",
     url: location.href,
@@ -207,12 +213,15 @@ function parseDouyinShare(text, page = {}) {
   const rawText = String(text || "").trim();
   const url = extractDouyinUrl(rawText);
   if (!url) return null;
-  const title = extractDouyinTitle(rawText, url);
+  const beforeUrl = rawText.slice(0, rawText.indexOf(url));
+  const title = extractDouyinTitle(beforeUrl);
+  const tags = extractDouyinTags(rawText);
   return {
     source: "douyin",
     url,
     rawText,
     title: title || page.title || "抖音视频",
+    tags,
     pageTitle: page.title || "",
     pageUrl: page.url || "",
     timestamp: Date.now()
@@ -225,7 +234,7 @@ function extractDouyinUrl(text) {
   return url ? url.replace(/[，。；、,.!?！?]+$/g, "") : "";
 }
 
-function cleanDouyinShareText(text, url) {
+function cleanDouyinShareText(text, url = "") {
   return String(text || "")
     .replace(url, " ")
     .replace(/复制(?:此)?链接[，,]?\s*打开(?:Dou音|抖音|Douyin).*?(?:视频|观看).*$/i, " ")
@@ -235,11 +244,19 @@ function cleanDouyinShareText(text, url) {
     .trim();
 }
 
-function extractDouyinTitle(text, url) {
-  const cleaned = cleanDouyinShareText(text, url).replace(/\s*#.*$/u, "").trim();
-  const chineseTitle = cleaned.match(/[\u4e00-\u9fff][^#]{3,}/u)?.[0]?.trim();
-  if (chineseTitle) return chineseTitle.replace(/[，。；、,.!?！?]+$/g, "");
-  return cleaned;
+function extractDouyinTitle(text) {
+  const beforeTags = String(text || "").split("#")[0] || "";
+  const afterDate = beforeTags.replace(/^[\s\S]*?\b\d{1,2}\/\d{1,2}\s+/u, "");
+  const withoutNoise = (afterDate === beforeTags ? beforeTags.replace(/^[^\u4e00-\u9fff\d]+/u, "") : afterDate)
+    .replace(/\s+/g, " ")
+    .trim();
+  return withoutNoise.replace(/[，。；、,.!?！?]+$/g, "");
+}
+
+function extractDouyinTags(text) {
+  return [...String(text || "").matchAll(/#\s*([^#\s，,。；;！!？?]+)/g)]
+    .map((match) => match[1].trim())
+    .filter(Boolean);
 }
 
 function preferredDouyinTitle(share, page = {}) {
@@ -354,13 +371,17 @@ async function handleNoteInput() {
     state.pendingShare = share;
     await chrome.storage.local.set({ [STORAGE_KEYS.pendingShare]: share });
     state.page = pageFromDouyinShare(state.page || {}, share);
-    const cleanedNote = cleanDouyinShareText($("noteInput").value, share.url);
-    const title = extractDouyinTitle($("noteInput").value, share.url);
-    $("noteInput").value = cleanedNote && !isNoisyDouyinShareText(cleanedNote) && cleanedNote !== title ? cleanedNote : "";
+    $("tagsInput").value = mergeTagText($("tagsInput").value, share.tags || []);
+    $("noteInput").value = "";
     renderCurrentPage();
     setStatus("已从备注识别抖音链接。", "success");
   }
   queueDraftSave();
+}
+
+function mergeTagText(current, tags) {
+  const merged = [...new Set([...parseTags(current), ...tags])];
+  return merged.join(", ");
 }
 
 function draftKey() {

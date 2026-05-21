@@ -32,7 +32,8 @@ function parseDouyinShare(text, context = {}) {
   const url = extractDouyinUrl(rawText);
   if (!url) return null;
 
-  const cleanedText = extractDouyinTitle(rawText, url);
+  const beforeUrl = rawText.slice(0, rawText.indexOf(url));
+  const cleanedText = extractDouyinTitle(beforeUrl);
   return {
     source: "douyin",
     url,
@@ -50,7 +51,7 @@ function extractDouyinUrl(text) {
   return url ? url.replace(/[，。；、,.!?！?]+$/g, "") : "";
 }
 
-function cleanDouyinShareText(text, url) {
+function cleanDouyinShareText(text, url = "") {
   return String(text || "")
     .replace(url, " ")
     .replace(/复制(?:此)?链接[，,]?\s*打开(?:Dou音|抖音|Douyin).*?(?:视频|观看).*$/i, " ")
@@ -60,11 +61,13 @@ function cleanDouyinShareText(text, url) {
     .trim();
 }
 
-function extractDouyinTitle(text, url) {
-  const cleaned = cleanDouyinShareText(text, url).replace(/\s*#.*$/u, "").trim();
-  const chineseTitle = cleaned.match(/[\u4e00-\u9fff][^#]{3,}/u)?.[0]?.trim();
-  if (chineseTitle) return chineseTitle.replace(/[，。；、,.!?！?]+$/g, "");
-  return cleaned;
+function extractDouyinTitle(text) {
+  const beforeTags = String(text || "").split("#")[0] || "";
+  const afterDate = beforeTags.replace(/^[\s\S]*?\b\d{1,2}\/\d{1,2}\s+/u, "");
+  const withoutNoise = (afterDate === beforeTags ? beforeTags.replace(/^[^\u4e00-\u9fff\d]+/u, "") : afterDate)
+    .replace(/\s+/g, " ")
+    .trim();
+  return withoutNoise.replace(/[，。；、,.!?！?]+$/g, "");
 }
 
 function isNoisyDouyinShareText(text) {
