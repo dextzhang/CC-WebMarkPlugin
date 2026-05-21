@@ -1,7 +1,8 @@
 const STORAGE_KEYS = {
   bookmarks: "cc_mark_bookmarks",
   github: "cc_mark_github",
-  drafts: "cc_mark_drafts"
+  drafts: "cc_mark_drafts",
+  pendingShare: "cc_mark_pending_share"
 };
 
 const DEFAULT_GITHUB = {
@@ -17,6 +18,7 @@ const state = {
   page: null,
   bookmarks: [],
   drafts: {},
+  pendingShare: null,
   github: { ...DEFAULT_GITHUB },
   busy: false,
   draftTimer: null,
@@ -58,10 +60,11 @@ function bindEvents() {
 }
 
 async function loadState() {
-  const stored = await chrome.storage.local.get([STORAGE_KEYS.bookmarks, STORAGE_KEYS.github, STORAGE_KEYS.drafts]);
+  const stored = await chrome.storage.local.get([STORAGE_KEYS.bookmarks, STORAGE_KEYS.github, STORAGE_KEYS.drafts, STORAGE_KEYS.pendingShare]);
   state.bookmarks = Array.isArray(stored[STORAGE_KEYS.bookmarks]) ? stored[STORAGE_KEYS.bookmarks] : [];
   state.github = { ...DEFAULT_GITHUB, ...(stored[STORAGE_KEYS.github] || {}) };
   state.drafts = stored[STORAGE_KEYS.drafts] && typeof stored[STORAGE_KEYS.drafts] === "object" ? stored[STORAGE_KEYS.drafts] : {};
+  state.pendingShare = stored[STORAGE_KEYS.pendingShare] || null;
 }
 
 async function saveBookmarks(bookmarks = state.bookmarks) {
@@ -82,13 +85,13 @@ async function readCurrentPage() {
       func: collectPageInfo
     });
 
-    state.page = normalizePageInfo({
+    state.page = applyPendingShare(normalizePageInfo({
       title: tab.title,
       url: tab.url,
       ...result
-    });
+    }));
     restoreDraft();
-    setStatus(state.github.repo ? "已读取当前网页。" : "未配置同步。");
+    setStatus(state.page.fromPendingShare ? "已识别抖音复制链接。" : state.github.repo ? "已读取当前网页。" : "未配置同步。");
   } catch (error) {
     state.page = normalizePageInfo({
       title: "当前网页",
@@ -155,6 +158,32 @@ function normalizePageInfo(info) {
   };
 }
 
+function applyPendingShare(page) {
+  const share = state.pendingShare;
+  if (!isFreshDouyinShare(share, page)) return page;
+  const shareUrl = cleanUrl(share.url);
+  return {
+    ...page,
+    title: cleanTitle(share.title || page.title || "抖音视频"),
+    url: share.url,
+    cleanUrl: shareUrl,
+    canonicalUrl: shareUrl,
+    description: share.rawText || page.description || "",
+    siteName: "抖音",
+    hostname: safeHostname(shareUrl),
+    fromPendingShare: true
+  };
+}
+
+function isFreshDouyinShare(share, page) {
+  if (!share || share.source !== "douyin" || !share.url) return false;
+  const age = Date.now() - Number(share.timestamp || 0);
+  const fresh = age >= 0 && age <= 15 * 60 * 1000;
+  const currentIsDouyin = page.hostname?.includes("douyin.com");
+  const shareIsDouyin = share.url.includes("douyin.com");
+  return fresh && currentIsDouyin && shareIsDouyin;
+}
+
 function cleanUrl(rawUrl) {
   try {
     const url = new URL(rawUrl);
@@ -174,8 +203,8 @@ function cleanUrl(rawUrl) {
       "share_plat",
       "share_session_id",
       "share_tag",
-      "timestamp"
-    ];
+    "timestamp"
+  ];
     removable.forEach((key) => url.searchParams.delete(key));
     if ([...url.searchParams.keys()].length === 0) {
       url.search = "";
@@ -226,6 +255,9 @@ async function addBookmark() {
 
   await saveBookmarks([bookmark, ...state.bookmarks]);
   await clearDraft();
+  if (state.page.fromPendingShare) {
+    await clearPendingShare();
+  }
   $("noteInput").value = "";
   $("tagsInput").value = "";
   renderRecent();
@@ -291,6 +323,11 @@ async function clearDraft() {
   delete next[key];
   state.drafts = next;
   await chrome.storage.local.set({ [STORAGE_KEYS.drafts]: state.drafts });
+}
+
+async function clearPendingShare() {
+  state.pendingShare = null;
+  await chrome.storage.local.remove(STORAGE_KEYS.pendingShare);
 }
 
 async function saveGithubConfig() {

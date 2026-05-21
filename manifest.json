@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "CC Mark",
   "description": "Personal webpage bookmark notes with local storage and GitHub sync.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "action": {
     "default_title": "CC Mark",
     "default_popup": "popup.html",
@@ -25,6 +25,31 @@
     "storage"
   ],
   "host_permissions": [
-    "https://api.github.com/*"
+    "https://api.github.com/*",
+    "https://www.douyin.com/*",
+    "https://*.douyin.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.douyin.com/*",
+        "https://*.douyin.com/*"
+      ],
+      "js": [
+        "site-adapters/douyin-content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "site-adapters/douyin-clipboard-hook.js"
+      ],
+      "matches": [
+        "https://www.douyin.com/*",
+        "https://*.douyin.com/*"
+      ]
+    }
   ]
 }
