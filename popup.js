@@ -49,7 +49,7 @@ function bindEvents() {
   $("closeManager").addEventListener("click", closeManager);
   $("managerSearch").addEventListener("input", renderManager);
   $("managerTagFilter").addEventListener("change", renderManager);
-  $("noteInput").addEventListener("input", queueDraftSave);
+  $("noteInput").addEventListener("input", handleNoteInput);
   $("tagsInput").addEventListener("input", queueDraftSave);
   $("settingsOverlay").addEventListener("click", (event) => {
     if (event.target === $("settingsOverlay")) closeSettings();
@@ -90,6 +90,7 @@ async function readCurrentPage() {
       url: tab.url,
       ...result
     }));
+    await applyClipboardShare();
     restoreDraft();
     setStatus(state.page.fromPendingShare ? "已识别抖音复制链接。" : state.github.repo ? "已读取当前网页。" : "未配置同步。");
   } catch (error) {
@@ -161,10 +162,37 @@ function normalizePageInfo(info) {
 function applyPendingShare(page) {
   const share = state.pendingShare;
   if (!isFreshDouyinShare(share, page)) return page;
+  return pageFromDouyinShare(page, share);
+}
+
+function isFreshDouyinShare(share, page) {
+  if (!share || share.source !== "douyin" || !share.url) return false;
+  const age = Date.now() - Number(share.timestamp || 0);
+  const fresh = age >= 0 && age <= 15 * 60 * 1000;
+  const currentIsDouyin = page.hostname?.includes("douyin.com");
+  const shareIsDouyin = share.url.includes("douyin.com");
+  return fresh && currentIsDouyin && shareIsDouyin;
+}
+
+async function applyClipboardShare() {
+  if (!state.page?.hostname?.includes("douyin.com") || !navigator.clipboard?.readText) return;
+  try {
+    const text = await navigator.clipboard.readText();
+    const share = parseDouyinShare(text, state.page);
+    if (!share) return;
+    state.pendingShare = share;
+    await chrome.storage.local.set({ [STORAGE_KEYS.pendingShare]: share });
+    state.page = pageFromDouyinShare(state.page, share);
+  } catch {
+    // Clipboard access is best-effort and can be blocked by browser settings.
+  }
+}
+
+function pageFromDouyinShare(page, share) {
   const shareUrl = cleanUrl(share.url);
   return {
     ...page,
-    title: cleanTitle(share.title || page.title || "抖音视频"),
+    title: cleanTitle(preferredDouyinTitle(share, page)),
     url: share.url,
     cleanUrl: shareUrl,
     canonicalUrl: shareUrl,
@@ -175,13 +203,50 @@ function applyPendingShare(page) {
   };
 }
 
-function isFreshDouyinShare(share, page) {
-  if (!share || share.source !== "douyin" || !share.url) return false;
-  const age = Date.now() - Number(share.timestamp || 0);
-  const fresh = age >= 0 && age <= 15 * 60 * 1000;
-  const currentIsDouyin = page.hostname?.includes("douyin.com");
-  const shareIsDouyin = share.url.includes("douyin.com");
-  return fresh && currentIsDouyin && shareIsDouyin;
+function parseDouyinShare(text, page = {}) {
+  const rawText = String(text || "").trim();
+  const url = extractDouyinUrl(rawText);
+  if (!url) return null;
+  const title = cleanDouyinShareText(rawText, url);
+  return {
+    source: "douyin",
+    url,
+    rawText,
+    title: title || page.title || "抖音视频",
+    pageTitle: page.title || "",
+    pageUrl: page.url || "",
+    timestamp: Date.now()
+  };
+}
+
+function extractDouyinUrl(text) {
+  const urls = String(text || "").match(/https?:\/\/[^\s"'<>，。；、）)]+/g) || [];
+  const url = urls.find((item) => /(^https?:\/\/|\/\/)([\w-]+\.)?douyin\.com/i.test(item));
+  return url ? url.replace(/[，。；、,.!?！?]+$/g, "") : "";
+}
+
+function cleanDouyinShareText(text, url) {
+  return String(text || "")
+    .replace(url, " ")
+    .replace(/复制(?:此)?链接[，,]?\s*打开(?:Dou音|抖音|Douyin).*?(?:视频|观看).*$/i, " ")
+    .replace(/打开(?:Dou音|抖音|Douyin).*?(?:视频|观看).*$/i, " ")
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function preferredDouyinTitle(share, page = {}) {
+  if (share.title && !isNoisyDouyinShareText(share.title)) return share.title;
+  return page.title || share.pageTitle || "抖音视频";
+}
+
+function isNoisyDouyinShareText(text) {
+  const value = String(text || "").trim();
+  if (!value) return false;
+  if (value.length > 80) return true;
+  if (/https?:\/\/|复制(?:此)?链接|打开(?:Dou音|抖音|Douyin)|KJV:|[@]/i.test(value)) return true;
+  const symbolCount = (value.match(/[/:;@#$%^&*=+\\|~<>]/g) || []).length;
+  return symbolCount >= 3;
 }
 
 function cleanUrl(rawUrl) {
@@ -274,6 +339,20 @@ function parseTags(value) {
     .split(/[,，\s]+/)
     .map((tag) => tag.trim().replace(/^#/, ""))
     .filter(Boolean);
+}
+
+async function handleNoteInput() {
+  const share = parseDouyinShare($("noteInput").value, state.page || {});
+  if (share && state.page?.hostname?.includes("douyin.com")) {
+    state.pendingShare = share;
+    await chrome.storage.local.set({ [STORAGE_KEYS.pendingShare]: share });
+    state.page = pageFromDouyinShare(state.page, share);
+    const cleanedNote = cleanDouyinShareText($("noteInput").value, share.url);
+    $("noteInput").value = cleanedNote && !isNoisyDouyinShareText(cleanedNote) ? cleanedNote : "";
+    renderCurrentPage();
+    setStatus("已从备注识别抖音链接。", "success");
+  }
+  queueDraftSave();
 }
 
 function draftKey() {

@@ -29,24 +29,42 @@ function storePendingShare(text, context) {
 
 function parseDouyinShare(text, context = {}) {
   const rawText = String(text || "").trim();
-  const urls = rawText.match(/https?:\/\/[^\s"'<>，。；、）)]+/g) || [];
-  const url = urls.find((item) => item.includes("douyin.com"));
+  const url = extractDouyinUrl(rawText);
   if (!url) return null;
 
-  const cleanedText = rawText
-    .replace(url, " ")
-    .replace(/复制(?:此)?链接.*$/i, " ")
-    .replace(/打开(?:抖音|Douyin).*$/i, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
+  const cleanedText = cleanDouyinShareText(rawText, url);
   return {
     source: "douyin",
     url,
     rawText,
-    title: cleanedText || context.title || "抖音视频",
+    title: cleanedText && !isNoisyDouyinShareText(cleanedText) ? cleanedText : context.title || document.title || "抖音视频",
     pageTitle: context.title || document.title || "",
     pageUrl: context.href || location.href,
     timestamp: context.timestamp || Date.now()
   };
+}
+
+function extractDouyinUrl(text) {
+  const urls = String(text || "").match(/https?:\/\/[^\s"'<>，。；、）)]+/g) || [];
+  const url = urls.find((item) => /(^https?:\/\/|\/\/)([\w-]+\.)?douyin\.com/i.test(item));
+  return url ? url.replace(/[，。；、,.!?！?]+$/g, "") : "";
+}
+
+function cleanDouyinShareText(text, url) {
+  return String(text || "")
+    .replace(url, " ")
+    .replace(/复制(?:此)?链接[，,]?\s*打开(?:Dou音|抖音|Douyin).*?(?:视频|观看).*$/i, " ")
+    .replace(/打开(?:Dou音|抖音|Douyin).*?(?:视频|观看).*$/i, " ")
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isNoisyDouyinShareText(text) {
+  const value = String(text || "").trim();
+  if (!value) return false;
+  if (value.length > 80) return true;
+  if (/https?:\/\/|复制(?:此)?链接|打开(?:Dou音|抖音|Douyin)|KJV:|[@]/i.test(value)) return true;
+  const symbolCount = (value.match(/[/:;@#$%^&*=+\\|~<>]/g) || []).length;
+  return symbolCount >= 3;
 }
