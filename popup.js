@@ -259,7 +259,7 @@ function extractDouyinTitle(text) {
 }
 
 function extractDouyinTags(text) {
-  return [...String(text || "").matchAll(/#\s*([^#\s，,。；;！!？?]+)/g)]
+  return [...String(text || "").matchAll(/[＃#]\s*([^#＃\s，,。；;！!？?]+)/g)]
     .map((match) => match[1].trim())
     .filter(Boolean);
 }
@@ -365,8 +365,8 @@ async function addBookmark() {
 
 function parseTags(value) {
   return value
-    .split(/[,，\s]+/)
-    .map((tag) => tag.trim().replace(/^#/, ""))
+    .split(/[#＃,，\s]+/)
+    .map((tag) => tag.trim())
     .filter(Boolean);
 }
 
